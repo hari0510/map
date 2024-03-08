@@ -1,96 +1,115 @@
-i<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
-  <head>
-    <title>Map Display</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
-    />
+<head>
+    <title>Map Display with Real-time GPS Tracking</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" />
     <style>
-      #map {
-        width: 100%;
-        height: 100vh;
-      }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script>
-      var map = L.map("map");
+        var map = L.map("map");
 
-      // Function to get user's current location
-      function getCurrentLocation() {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(function (position) {
-            var userCoords = [
-              position.coords.latitude,
-              position.coords.longitude,
-            ];
-            displayRoute(userCoords);
-          });
-        } else {
-          alert("Geolocation is not supported by this browser.");
-        }
-      }
-
-      // Function to prompt user for destination address and display route
-      function displayRoute(startCoords) {
-        var toName = prompt("Enter destination location (To):");
-
-        // Geocode destination location (to)
-        fetch(
-          "https://nominatim.openstreetmap.org/search?format=json&q=" +
-            encodeURIComponent(toName)
-        )
-          .then((response) => response.json())
-          .then((toData) => {
-            if (toData && toData.length > 0) {
-              var toCoords = [
-                parseFloat(toData[0].lat),
-                parseFloat(toData[0].lon),
-              ];
-
-              // Set map view to user's current location
-              map.setView(startCoords, 11);
-
-              // Add tile layer
-              L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png", {
-                attribution:
-                  "Map data &copy; <a href='http://openstreetmap.org'>OpenStreetMap</a> contributors",
-                maxZoom: 18,
-              }).addTo(map);
-
-              // Add marker for user's current location
-              var taxiIcon = L.icon({
-                iconUrl: "images/taxi.png",
-                iconSize: [70, 70],
-              });
-              var startMarker = L.marker(startCoords, { icon: taxiIcon }).addTo(
-                map
-              );
-
-              // Add routing control for the route
-              var control = L.Routing.control({
-                waypoints: [L.latLng(startCoords), L.latLng(toCoords)],
-                addWaypoints: false,
-                lineOptions: {
-                  styles: [{ color: "red", opacity: 0.6, weight: 4 }],
-                },
-              }).addTo(map);
+        // Function to get user's current location
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    var userCoords = [
+                        position.coords.latitude,
+                        position.coords.longitude,
+                    ];
+                    displayRoute(userCoords);
+                    // Enable real-time tracking after getting initial location
+                    enableRealTimeTracking();
+                });
             } else {
-              alert("Destination location not found.");
+                alert("Geolocation is not supported by this browser.");
             }
-          })
-          .catch((error) => {
-            console.error("Error geocoding destination location:", error);
-            alert("Error geocoding destination location.");
-          });
-      }
+        }
 
-      // Call the function to get user's current location and display route
-      getCurrentLocation();
+        // Function to prompt user for destination address and display route
+        function displayRoute(startCoords) {
+            var toName = prompt("Enter destination location (To):");
+
+            // Geocode destination location (to)
+            fetch(
+                "https://nominatim.openstreetmap.org/search?format=json&q=" +
+                encodeURIComponent(toName)
+            )
+                .then((response) => response.json())
+                .then((toData) => {
+                    if (toData && toData.length > 0) {
+                        var toCoords = [
+                            parseFloat(toData[0].lat),
+                            parseFloat(toData[0].lon),
+                        ];
+
+                        // Set map view to user's current location
+                        map.setView(startCoords, 11);
+
+                        // Add tile layer
+                        L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png", {
+                            attribution:
+                                "Map data &copy; <a href='http://openstreetmap.org'>OpenStreetMap</a> contributors",
+                            maxZoom: 18,
+                        }).addTo(map);
+
+                        // Add marker for user's current location
+                        var taxiIcon = L.icon({
+                            iconUrl: "images/taxi.png",
+                            iconSize: [70, 70],
+                        });
+                        var startMarker = L.marker(startCoords, { icon: taxiIcon }).addTo(
+                            map
+                        );
+
+                        // Add routing control for the route
+                        var control = L.Routing.control({
+                            waypoints: [L.latLng(startCoords), L.latLng(toCoords)],
+                            addWaypoints: false,
+                            lineOptions: {
+                                styles: [{ color: "red", opacity: 0.6, weight: 4 }],
+                            },
+                        }).addTo(map);
+                    } else {
+                        alert("Destination location not found.");
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error geocoding destination location:", error);
+                    alert("Error geocoding destination location.");
+                });
+        }
+
+        // Function to enable real-time tracking
+        function enableRealTimeTracking() {
+            function onLocationFound(e) {
+                var radius = e.accuracy / 2;
+
+                L.marker(e.latlng).addTo(map)
+                    .bindPopup("You are within " + radius + " meters from this point").openPopup();
+
+                L.circle(e.latlng, radius).addTo(map);
+            }
+
+            function onLocationError(e) {
+                alert(e.message);
+            }
+
+            map.on('locationfound', onLocationFound);
+            map.on('locationerror', onLocationError);
+
+            map.locate({ setView: true, maxZoom: 16, watch: true }); // Set watch to true for real-time tracking
+        }
+
+        // Call the function to get user's current location and display route
+        getCurrentLocation();
     </script>
-  </body>
+</body>
 </html>
