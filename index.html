@@ -15,6 +15,7 @@
     <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
     <script>
         var map = L.map("map");
+        var currentLocationMarker;
 
         // Function to get user's current location
         function getCurrentLocation() {
@@ -65,9 +66,7 @@
                             iconUrl: "images/taxi.png",
                             iconSize: [70, 70],
                         });
-                        var startMarker = L.marker(startCoords, { icon: taxiIcon }).addTo(
-                            map
-                        );
+                        currentLocationMarker = L.marker(startCoords, { icon: taxiIcon }).addTo(map);
 
                         // Add routing control for the route
                         var control = L.Routing.control({
@@ -92,8 +91,12 @@
             function onLocationFound(e) {
                 var radius = e.accuracy / 2;
 
-                L.marker(e.latlng).addTo(map)
-                    .bindPopup("You are within " + radius + " meters from this point").openPopup();
+                if (currentLocationMarker) {
+                    map.removeLayer(currentLocationMarker);
+                }
+
+                currentLocationMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
+                currentLocationMarker.bindPopup("Current Location");
 
                 L.circle(e.latlng, radius).addTo(map);
             }
@@ -110,6 +113,11 @@
 
         // Call the function to get user's current location and display route
         getCurrentLocation();
+        
+        // Update the user's location marker every second
+        setInterval(function() {
+            map.locate();
+        }, 1000);
     </script>
 </body>
 </html>
