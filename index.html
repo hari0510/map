@@ -6,79 +6,218 @@
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
     />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
     <style>
+      /* Flex container for three rows */
+      .flex-container {
+        display: flex;
+        flex-direction: column;
+        height: 97vh;
+      }
+
+      /* Adjusting the map container itself */
       #map {
+        flex: 1;
+        min-height: 0; /* Ensure the map container can shrink */
+        position: relative;
+      }
+
+      /* Style for form elements */
+      .input-text {
+        padding: 8px;
+        border: 1px solid #251db4;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        font-size: 16px;
         width: 100%;
-        height: 100vh;
+        box-sizing: border-box;
+      }
+
+      .submit-button {
+        padding: 10px 20px;
+        background-color: #8caf4c;
+        color: rgb(231, 20, 20);
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      .submit-button:hover {
+        background-color: #a06b45;
+      }
+
+      .row-10 {
+        width: 100%; /* Ensure the row container takes full width */
+      }
+
+      .form-control {
+        flex: 1; /* Allow form inputs to expand equally within their row */
+      }
+
+      .btn-primary,
+      .btn-secondary {
+        flex: 0 0 auto; /* Set fixed width for buttons to prevent wrapping */
+        white-space: nowrap; /* Prevent button text from wrapping */
+      }
+
+      .rounded-circle {
+        width: 80px; /* Adjust width as needed */
+        height: 30px; /* Adjust height as needed */
+        background-color: var(
+          --label-background-color,
+          #eee
+        ); /* Set background color or use a variable */
+        color: #fff; /* Text color */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 5px; /* Add padding for better spacing */
+
+        /* Create rectangle with sharper top/bottom and curved sides */
+        border-radius: 5px 5px 0 0;
+      }
+
+      .placeholder {
+        opacity: 0.5; /* Make placeholder text slightly transparent */
       }
     </style>
   </head>
   <body>
-    <div id="map"></div>
+    <div class="flex-container">
+      <!-- First row with form to get start and destination -->
+      <div class="container">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="row-10 p-3 d-flex align-items-center">
+              <form id="routeForm" class="d-flex">
+                <input
+                  type="text"
+                  id="startInput"
+                  name="startLocation"
+                  class="form-control mr-3"
+                  placeholder="Enter Start Location"
+                  required
+                />
+                <button
+                  type="button"
+                  class="btn btn-primary mr-2"
+                  style="background-color: rgb(255, 0, 191)"
+                  onclick="getLocation()"
+                >
+                  Get Location
+                </button>
+                <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</p>
+                <input
+                  type="text"
+                  id="destinationInput"
+                  name="destination"
+                  class="form-control mr-3"
+                  placeholder="Enter Destination"
+                  required
+                />
+                <button
+                  type="submit"
+                  class="btn btn-primary mr-2"
+                  style="background-color: red"
+                >
+                  MOVE
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  style="background-color: #251db4"
+                >
+                  Analysis
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Second row for the map -->
+      <div id="map"></div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script>
-      var map = L.map("map");
+      var map = L.map("map").setView([0, 0], 2);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          "Map data &copy; <a href='http://openstreetmap.org'>OpenStreetMap</a> contributors",
+        maxZoom: 18,
+      }).addTo(map);
 
-      // Function to get user's current location
-      function getCurrentLocation() {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(function (position) {
-            var userCoords = [
-              position.coords.latitude,
-              position.coords.longitude,
-            ];
-            displayRoute(userCoords);
-          });
-        } else {
-          alert("Geolocation is not supported by this browser.");
-        }
-      }
+      document
+        .getElementById("routeForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault(); // Prevent form submission
+          var startLocation = document.getElementById("startInput").value;
+          var destination = document.getElementById("destinationInput").value;
 
-      // Function to prompt user for destination address and display route
-      function displayRoute(startCoords) {
-        var toName = prompt("Enter destination location (To):");
+          if (startLocation && destination) {
+            displayRoute(startLocation, destination);
+          } else {
+            alert("Start location and destination are required.");
+          }
+        });
 
-        // Geocode destination location (to)
+      function displayRoute(startLocation, destination) {
         fetch(
           "https://nominatim.openstreetmap.org/search?format=json&q=" +
-            encodeURIComponent(toName)
+            encodeURIComponent(destination)
         )
           .then((response) => response.json())
           .then((toData) => {
             if (toData && toData.length > 0) {
-              var toCoords = [
+              var destinationCoords = [
                 parseFloat(toData[0].lat),
                 parseFloat(toData[0].lon),
               ];
 
-              // Set map view to user's current location
-              map.setView(startCoords, 11);
+              // Geocode start location
+              fetch(
+                "https://nominatim.openstreetmap.org/search?format=json&q=" +
+                  encodeURIComponent(startLocation)
+              )
+                .then((response) => response.json())
+                .then((fromData) => {
+                  if (fromData && fromData.length > 0) {
+                    var startCoords = [
+                      parseFloat(fromData[0].lat),
+                      parseFloat(fromData[0].lon),
+                    ];
 
-              // Add tile layer
-              L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png", {
-                attribution:
-                  "Map data &copy; <a href='http://openstreetmap.org'>OpenStreetMap</a> contributors",
-                maxZoom: 18,
-              }).addTo(map);
+                    // Set map view to start location
+                    map.setView(startCoords, 11);
 
-              // Add marker for user's current location
-              var taxiIcon = L.icon({
-                iconUrl: "images/taxi.png",
-                iconSize: [70, 70],
-              });
-              var startMarker = L.marker(startCoords, { icon: taxiIcon }).addTo(
-                map
-              );
+                    // Add marker for start location
+                    var startMarker = L.marker(startCoords).addTo(map);
 
-              // Add routing control for the route
-              var control = L.Routing.control({
-                waypoints: [L.latLng(startCoords), L.latLng(toCoords)],
-                addWaypoints: false,
-                lineOptions: {
-                  styles: [{ color: "red", opacity: 0.6, weight: 4 }],
-                },
-              }).addTo(map);
+                    // Add routing control for the route
+                    L.Routing.control({
+                      waypoints: [
+                        L.latLng(startCoords[0], startCoords[1]),
+                        L.latLng(destinationCoords[0], destinationCoords[1]),
+                      ],
+                    }).addTo(map);
+                  } else {
+                    alert("Start location not found.");
+                  }
+                })
+                .catch((error) => {
+                  console.error("Error geocoding start location:", error);
+                  alert("Error geocoding start location.");
+                });
             } else {
               alert("Destination location not found.");
             }
@@ -89,8 +228,21 @@
           });
       }
 
-      // Call the function to get user's current location and display route
-      getCurrentLocation();
+      // Function to get location from GPS
+      function getLocation() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(showPosition);
+        } else {
+          alert("Geolocation is not supported by this browser.");
+        }
+      }
+
+      function showPosition(position) {
+        var latitude = position.coords.latitude;
+        var longitude = position.coords.longitude;
+        document.getElementById("startInput").value =
+          latitude + ", " + longitude;
+      }
     </script>
   </body>
 </html>
